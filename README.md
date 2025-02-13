@@ -19,8 +19,8 @@ pip install -r requirements.txt
 # Ollamaをインストール（macOS/Linux）
 curl https://ollama.ai/install.sh | sh
 
-# DeepSeek Coderモデルをダウンロード
-ollama pull deepseek-coder
+# DeepSeek R1モデルをダウンロード
+ollama pull deepseek-r1:14b
 ```
 
 ## 使用方法

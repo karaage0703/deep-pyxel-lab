@@ -71,61 +71,150 @@ class GameGenerator:
 - クラスベースで実装
 - 適切なコメントを含める
 - 画面サイズは256x256
+- コードは省略しないでください
 
 注意:
 - マークダウンの装飾は使用しないでください
 - Pythonコードのみを返してください
+- assetはありません。画像は自分で描画してください
 
 サンプルコード：
-- Linuxのポータブルデバイスで動かすことを想定しています。物理キーで操作できるようにしてください。以下がサンプルコードです。
+- 以下はアクションゲームのサンプルゲームです。
 
 ```python
-def __init__(self):
-    self.SCREEN_WIDTH = 256
-    self.SCREEN_HEIGHT = 256
-    pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="<Game title>")
+import pyxel
 
-    # アナログ入力とキーボード対応
-    self.analog_inputs = [
-        ("GAMEPAD1_AXIS_LEFTX", [pyxel.KEY_D, pyxel.KEY_A]),  # D/Aキーで左右
-        ("GAMEPAD1_AXIS_LEFTY", [pyxel.KEY_S, pyxel.KEY_W]),  # S/Wキーで上下
-        ("GAMEPAD1_AXIS_RIGHTX", [pyxel.KEY_RIGHT, pyxel.KEY_LEFT]),  # 右左キー
-        ("GAMEPAD1_AXIS_RIGHTY", [pyxel.KEY_DOWN, pyxel.KEY_UP]),  # 下上キー
-        ("GAMEPAD1_AXIS_TRIGGERLEFT", [pyxel.KEY_Q]),  # Qキー
-        ("GAMEPAD1_AXIS_TRIGGERRIGHT", [pyxel.KEY_E]),  # Eキー
-    ]
+SCREEN_WIDTH = 256
+SCREEN_HEIGHT = 256
 
-    # デジタル入力とキーボード対応
-    self.digital_inputs = [
-        ("GAMEPAD1_BUTTON_LEFTSTICK", [pyxel.KEY_Z]),  # Zキー
-        ("GAMEPAD1_BUTTON_RIGHTSTICK", [pyxel.KEY_X]),  # Xキー
-        ("GAMEPAD1_BUTTON_A", [pyxel.KEY_J]),  # Jキー
-        ("GAMEPAD1_BUTTON_B", [pyxel.KEY_K]),  # Kキー
-        ("GAMEPAD1_BUTTON_X", [pyxel.KEY_U]),  # Uキー
-        ("GAMEPAD1_BUTTON_Y", [pyxel.KEY_I]),  # Iキー
-        ("GAMEPAD1_BUTTON_BACK", [pyxel.KEY_B]),  # Bキー
-        ("GAMEPAD1_BUTTON_GUIDE", [pyxel.KEY_G]),  # Gキー
-        ("GAMEPAD1_BUTTON_START", [pyxel.KEY_RETURN]),  # Enterキー
-        ("GAMEPAD1_BUTTON_LEFTSHOULDER", [pyxel.KEY_1]),  # 1キー
-        ("GAMEPAD1_BUTTON_RIGHTSHOULDER", [pyxel.KEY_2]),  # 2キー
-        ("GAMEPAD1_BUTTON_DPAD_UP", [pyxel.KEY_UP]),  # ↑キー
-        ("GAMEPAD1_BUTTON_DPAD_DOWN", [pyxel.KEY_DOWN]),  # ↓キー
-        ("GAMEPAD1_BUTTON_DPAD_LEFT", [pyxel.KEY_LEFT]),  # ←キー
-        ("GAMEPAD1_BUTTON_DPAD_RIGHT", [pyxel.KEY_RIGHT]),  # →キー
-    ]
-```
+MAX_BUBBLE_SPEED = 1.8
+NUM_INITIAL_BUBBLES = 50
+NUM_EXPLODE_BUBBLES = 11
 
-- STARTボタンかESCキーで終了できるようにしてください。以下はサンプルコードです。
 
-```python
-def update(self):
-    # STARTボタンまたはESCキーで終了
-    if pyxel.btn(pyxel.GAMEPAD1_BUTTON_START) or pyxel.btn(pyxel.KEY_ESCAPE):
-        pyxel.quit()
+class Vec2:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class Bubble:
+    def __init__(self):
+        self.r = pyxel.rndf(3, 10)
+
+        self.pos = Vec2(
+            pyxel.rndf(self.r, SCREEN_WIDTH - self.r),
+            pyxel.rndf(self.r, SCREEN_HEIGHT - self.r),
+        )
+
+        self.vel = Vec2(
+            pyxel.rndf(-MAX_BUBBLE_SPEED, MAX_BUBBLE_SPEED),
+            pyxel.rndf(-MAX_BUBBLE_SPEED, MAX_BUBBLE_SPEED),
+        )
+
+        self.color = pyxel.rndi(1, 15)
+
+    def update(self):
+        self.pos.x += self.vel.x
+        self.pos.y += self.vel.y
+
+        if self.vel.x < 0 and self.pos.x < self.r:
+            self.vel.x *= -1
+
+        if self.vel.x > 0 and self.pos.x > SCREEN_WIDTH - self.r:
+            self.vel.x *= -1
+
+        if self.vel.y < 0 and self.pos.y < self.r:
+            self.vel.y *= -1
+
+        if self.vel.y > 0 and self.pos.y > SCREEN_HEIGHT - self.r:
+            self.vel.y *= -1
+
+
+class App:
+    def __init__(self):
+        pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Pyxel Bubbles", capture_scale=1)
+        pyxel.mouse(True)
+
+        self.is_exploded = False
+        self.bubbles = [Bubble() for _ in range(NUM_INITIAL_BUBBLES)]
+
+        pyxel.run(self.update, self.draw)
+
+    def update(self):
+        if pyxel.btnp(pyxel.KEY_Q):
+            pyxel.quit()
+
+        num_bubbles = len(self.bubbles)
+
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            for i in range(num_bubbles):
+                bubble = self.bubbles[i]
+                dx = bubble.pos.x - pyxel.mouse_x
+                dy = bubble.pos.y - pyxel.mouse_y
+
+                if dx * dx + dy * dy < bubble.r * bubble.r:
+                    self.is_exploded = True
+                    new_r = pyxel.sqrt(bubble.r * bubble.r / NUM_EXPLODE_BUBBLES)
+
+                    for j in range(NUM_EXPLODE_BUBBLES):
+                        angle = 360 * j / NUM_EXPLODE_BUBBLES
+
+                        new_bubble = Bubble()
+                        new_bubble.r = new_r
+                        new_bubble.pos.x = bubble.pos.x + (
+                            bubble.r + new_r
+                        ) * pyxel.cos(angle)
+                        new_bubble.pos.y = bubble.pos.y + (
+                            bubble.r + new_r
+                        ) * pyxel.sin(angle)
+                        new_bubble.vel.x = pyxel.cos(angle) * MAX_BUBBLE_SPEED
+                        new_bubble.vel.y = pyxel.sin(angle) * MAX_BUBBLE_SPEED
+                        self.bubbles.append(new_bubble)
+
+                    del self.bubbles[i]
+                    break
+
+        for i in range(num_bubbles - 1, -1, -1):
+            bi = self.bubbles[i]
+            bi.update()
+
+            for j in range(i - 1, -1, -1):
+                bj = self.bubbles[j]
+                dx = bi.pos.x - bj.pos.x
+                dy = bi.pos.y - bj.pos.y
+                total_r = bi.r + bj.r
+
+                if dx * dx + dy * dy < total_r * total_r:
+                    new_bubble = Bubble()
+                    new_bubble.r = pyxel.sqrt(bi.r * bi.r + bj.r * bj.r)
+                    new_bubble.pos.x = (bi.pos.x * bi.r + bj.pos.x * bj.r) / total_r
+                    new_bubble.pos.y = (bi.pos.y * bi.r + bj.pos.y * bj.r) / total_r
+                    new_bubble.vel.x = (bi.vel.x * bi.r + bj.vel.x * bj.r) / total_r
+                    new_bubble.vel.y = (bi.vel.y * bi.r + bj.vel.y * bj.r) / total_r
+                    self.bubbles.append(new_bubble)
+
+                    del self.bubbles[i]
+                    del self.bubbles[j]
+                    num_bubbles -= 1
+                    break
+
+    def draw(self):
+        pyxel.cls(0)
+
+        for bubble in self.bubbles:
+            pyxel.circ(bubble.pos.x, bubble.pos.y, bubble.r, bubble.color)
+
+        if not self.is_exploded and pyxel.frame_count % 20 < 10:
+            pyxel.text(96, 50, "CLICK ON BUBBLE", pyxel.frame_count % 15 + 1)
+
+
+App()
 ```
 """
+        response = self.client.generate(model="deepseek-r1:14b", prompt=prompt, stream=False)
         # response = self.client.generate(model="deepseek-coder-v2:16b", prompt=prompt, stream=False)
-        response = self.client.generate(model="phi4", prompt=prompt, stream=False)
+        # response = self.client.generate(model="phi4", prompt=prompt, stream=False)
 
         # 生成されたコードをクリーンアップ
         return clean_code(response["response"])
@@ -192,7 +281,7 @@ def create_web_interface():
         ## 注意事項
         - Pyxel 1.9.18以上が必要です
         - Ollamaサーバーが実行中である必要があります
-        - deepseek-coder-v2:16bモデルがインストールされている必要があります
+        - deepseek-r1:14bモデルがインストールされている必要があります
         """)
 
     return interface
