@@ -3,7 +3,6 @@ import traceback
 import requests
 import argparse
 from ollama import Client
-from typing import Optional
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -31,7 +30,7 @@ def check_server_availability(base_url: str) -> bool:
     try:
         response = requests.get(f"{base_url}/api/version", timeout=5)
         return response.status_code == 200
-    except:
+    except Exception:
         return False
 
 
@@ -129,7 +128,7 @@ def test_ollama_connection(args: argparse.Namespace) -> bool:
         return True
 
     except Exception as e:
-        print(f"\n❌ エラーが発生しました:", file=sys.stderr, flush=True)
+        print("\n❌ エラーが発生しました:", file=sys.stderr, flush=True)
         print(f"エラーの種類: {type(e).__name__}", file=sys.stderr, flush=True)
         print(f"エラーメッセージ: {str(e)}", file=sys.stderr, flush=True)
         print("\n=== スタックトレース ===", file=sys.stderr, flush=True)

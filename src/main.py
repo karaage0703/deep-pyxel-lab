@@ -1,4 +1,3 @@
-import os
 import sys
 import gradio as gr
 import requests
@@ -19,7 +18,7 @@ def check_server_availability(base_url: str) -> bool:
     try:
         response = requests.get(f"{base_url}/api/version", timeout=5)
         return response.status_code == 200
-    except:
+    except Exception:
         return False
 
 
