@@ -1,6 +1,5 @@
 from src.main import create_web_interface
 import gradio as gr
-import pytest
 
 
 def test_web_interface_creation():
