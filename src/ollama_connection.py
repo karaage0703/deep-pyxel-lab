@@ -20,7 +20,12 @@ def create_parser() -> argparse.ArgumentParser:
         """,
     )
 
-    parser.add_argument("-i", "--ip", type=str, help="接続先サーバーのIPアドレス（デフォルト: localhost）")
+    parser.add_argument(
+        "-i",
+        "--ip",
+        type=str,
+        help="接続先サーバーのIPアドレス（デフォルト: localhost）",
+    )
 
     return parser
 
