@@ -6,6 +6,31 @@ from ollama import Client
 from typing import Optional, Tuple
 
 
+def get_available_models(base_url: str) -> list:
+    """利用可能なモデルの一覧を取得する"""
+    try:
+        response = requests.get(f"{base_url}/api/tags", timeout=5)
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if isinstance(data, list):
+                    return [model.get("name", "") for model in data if model.get("name")]
+                elif isinstance(data, dict) and "models" in data:
+                    return [model.get("name", "") for model in data["models"] if model.get("name")]
+                else:
+                    print(f"⚠️ 予期しないレスポンス形式: {data}", flush=True)
+                    return []
+            except Exception as e:
+                print(f"⚠️ JSONパースエラー: {str(e)}", flush=True)
+                return []
+        else:
+            print(f"⚠️ APIエラー: ステータスコード {response.status_code}", flush=True)
+            return []
+    except Exception as e:
+        print(f"⚠️ モデル一覧の取得中にエラー: {str(e)}", flush=True)
+        return []
+
+
 def get_server_url(ip: Optional[str] = None) -> str:
     """サーバーのURLを取得する"""
     if ip:
@@ -54,8 +79,13 @@ class GameGenerator:
             raise ConnectionError(f"Ollamaサーバー({base_url})に接続できません")
 
         self.client = Client(host=base_url)
+        self.models = get_available_models(base_url)
 
-    def generate_game_code(self, description: str) -> str:
+    def generate_game_code(self, description: str, model: str) -> str:
+        if not model:
+            raise ValueError("モデルが選択されていません")
+        if model not in self.models:
+            raise ValueError(f"選択されたモデル '{model}' は利用できません")
         """ゲームコードを生成する"""
         prompt = f"""
 以下の説明に基づいてPyxelゲームのコードを生成してください。
@@ -211,22 +241,20 @@ class App:
 App()
 ```
 """
-        response = self.client.generate(model="deepseek-r1:14b", prompt=prompt, stream=False)
-        # response = self.client.generate(model="deepseek-coder-v2:16b", prompt=prompt, stream=False)
-        # response = self.client.generate(model="phi4", prompt=prompt, stream=False)
+        response = self.client.generate(model=model, prompt=prompt, stream=False)
 
         # 生成されたコードをクリーンアップ
         return clean_code(response["response"])
 
 
-def generate_and_save_game(description: str, ip: Optional[str] = None) -> Tuple[str, str]:
+def generate_and_save_game(description: str, model: str, ip: Optional[str] = None) -> Tuple[str, str]:
     """ゲームを生成して保存する"""
     try:
         base_url = get_server_url(ip)
         generator = GameGenerator(base_url)
 
         # ゲームコードの生成
-        generated_code = generator.generate_game_code(description)
+        generated_code = generator.generate_game_code(description, model)
 
         # 生成されたコードを一時ファイルに保存
         temp_file = "generated_game.py"
@@ -260,6 +288,27 @@ def create_web_interface():
                     lines=5,
                 )
                 ip_input = gr.Textbox(label="Ollamaサーバーのアドレス(Option)", value="", lines=1)
+
+                # サーバーからモデル一覧を取得する関数
+                def get_models(ip):
+                    base_url = get_server_url(ip)
+                    if check_server_availability(base_url):
+                        return get_available_models(base_url)
+                    return []
+
+                # モデル選択用のドロップダウンを追加
+                model_input = gr.Dropdown(
+                    label="使用するモデル",
+                    choices=get_models(None),  # 初期状態ではローカルサーバーをチェック
+                    value=None,
+                )
+
+                # IPアドレスが変更されたときにモデル一覧を更新
+                def update_models(ip):
+                    return gr.update(choices=get_models(ip))
+
+                ip_input.change(fn=update_models, inputs=[ip_input], outputs=[model_input])
+
                 generate_btn = gr.Button("ゲームを生成", variant="primary")
 
             with gr.Column():
@@ -267,20 +316,25 @@ def create_web_interface():
                 status_output = gr.Textbox(label="ステータス", lines=3)
 
         generate_btn.click(
-            fn=generate_and_save_game, inputs=[description_input, ip_input], outputs=[code_output, status_output]
+            fn=generate_and_save_game,
+            inputs=[description_input, model_input, ip_input],
+            outputs=[code_output, status_output],
         )
 
         gr.Markdown("""
         ## 使い方
-        1. 必要に応じてゲームの説明を編集
-        2. 「ゲームを生成」ボタンをクリック
-        3. 生成されたコードを確認
-        4. 表示されるコマンドを使ってゲームを実行
+        1. 必要に応じてOllamaサーバーのアドレスを入力
+        2. 使用するモデルを選択
+        3. ゲームの説明を編集
+        4. 「ゲームを生成」ボタンをクリック
+        5. 生成されたコードを確認
+        6. 表示されるコマンドを使ってゲームを実行
 
         ## 注意事項
         - Pyxel 1.9.18以上が必要です
         - Ollamaサーバーが実行中である必要があります
-        - deepseek-r1:14bモデルがインストールされている必要があります
+        - サーバーに必要なモデルがインストールされている必要があります
+        - リモートサーバーを使用する場合は、サーバーのIPアドレスを入力してください
         """)
 
     return interface
